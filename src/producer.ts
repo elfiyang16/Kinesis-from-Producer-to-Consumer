@@ -4,10 +4,7 @@ import {
   APIGatewayEvent,
   Context,
 } from "aws-lambda";
-import Kinesis, {
-  PutRecordsInput,
-  PutRecordsRequestEntry,
-} from "aws-sdk/clients/kinesis";
+import Kinesis from "aws-sdk/clients/kinesis";
 import { v4 as uuidv4 } from "uuid";
 
 const kinesis = new Kinesis({
@@ -34,7 +31,6 @@ const handler = async (
   event: APIGatewayEvent,
   context: Context
 ): Promise<APIGatewayProxyResult> => {
-  let message: string;
   let statusCode = 200;
 
   if (!event.body) {
