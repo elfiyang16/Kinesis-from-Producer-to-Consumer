@@ -1,0 +1,64 @@
+service:
+  name: kinesis-playground
+
+plugins:
+  - serverless-webpack
+
+custom:
+  - streamName: Test_Stream
+provider:
+  name: aws
+  runtime: nodejs12.x
+  region: ${opt:region, 'eu-west-1'}
+  deploymentBucket:
+    blockPublicAccess: true
+  logRetentionInDays: 7
+  memorySize: 128
+  timeout: 30
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+      Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*:log-stream:*
+    - Effect: Allow
+      Action:
+        - kinesis:PutRecord
+        - kinesis:PutRecords
+      Resource:
+        - !Sub arn:aws:kinesis:${AWS::Region}:${AWS::AccountId}:stream/${self:custom.streamName}
+
+functions:
+  producer:
+    handler: src/producer.handler
+    events:
+      - http:
+          method: post
+          path: producer
+
+  consumer:
+    handler: src/consumer.handler
+    events:
+      - stream:
+          type: kinesis
+          arn: !GetAtt KinesisStream.Arn
+          consumer: true
+          startingPosition: LATEST
+          parallelizationFactor: 1 # max 10
+          batchWindow: 5
+          batchSize: 10
+          maximumRetryAttempts: 1
+          bisectBatchOnFunctionError: true
+          functionResponseType: ReportBatchItemFailures
+          maximumRecordAgeInSeconds: 120
+          tumblingWindowInSeconds: 60
+
+resources:
+  Resources:
+    KinesisStream:
+      Type: AWS::Kinesis::Stream
+      Properties:
+        Name: ${self:custom.streamName}
+        RetentionPeriodHours: 24
+        ShardCount: 2
